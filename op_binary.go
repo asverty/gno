@@ -446,7 +446,24 @@ func isEql(store Store, lv, rv *TypedValue) bool {
 				panic("function can only be compared with `nil`")
 			}
 		}
-		return lv.V == rv.V
+		if _, ok := lv.V.(*BoundMethodValue); ok {
+			// BoundMethodValues are objects so just compare.
+			return lv.V == rv.V
+		} else if lv.V == nil && rv.V == nil {
+			return true
+		} else {
+			lfv := lv.V.(*FuncValue)
+			rfv, ok := rv.V.(*FuncValue)
+			if !ok {
+				return false
+			}
+			if lfv.Source.GetLocation() !=
+				rfv.Source.GetLocation() {
+				return false
+			}
+			return lfv.GetClosure(store) ==
+				rfv.GetClosure(store)
+		}
 	case PointerKind:
 		// TODO: assumes runtime instance normalization.
 		return lv.V == rv.V
@@ -976,7 +993,7 @@ func shlAssign(lv, rv *TypedValue) {
 	case Uint8Type:
 		lv.SetUint8(lv.GetUint8() << rv.GetUint())
 	case DataByteType:
-		lv.SetDataByte(lv.GetDataByte() << rv.GetUint8())
+		lv.SetDataByte(lv.GetDataByte() << rv.GetUint())
 	case Uint16Type:
 		lv.SetUint16(lv.GetUint16() << rv.GetUint())
 	case Uint32Type:
@@ -1015,7 +1032,7 @@ func shrAssign(lv, rv *TypedValue) {
 	case Uint8Type:
 		lv.SetUint8(lv.GetUint8() >> rv.GetUint())
 	case DataByteType:
-		lv.SetDataByte(lv.GetDataByte() >> rv.GetUint8())
+		lv.SetDataByte(lv.GetDataByte() >> rv.GetUint())
 	case Uint16Type:
 		lv.SetUint16(lv.GetUint16() >> rv.GetUint())
 	case Uint32Type:

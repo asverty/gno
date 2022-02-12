@@ -48,7 +48,7 @@ import (
 )
 
 // NOTE: this isn't safe.
-func testStore(stdin io.Reader, stdout, stderr io.Writer, isRealm bool, nativeLibs bool) (store gno.Store) {
+func testStore(stdin io.Reader, stdout, stderr io.Writer, nativeLibs bool) (store gno.Store) {
 	filesPath := "./files"
 	if nativeLibs {
 		filesPath = "./files2"
@@ -63,14 +63,14 @@ func testStore(stdin io.Reader, stdout, stderr io.Writer, isRealm bool, nativeLi
 			baseDir := filepath.Join(filesPath, "extern", pkgPath[len(testPath):])
 			memPkg := gno.ReadMemPackage(baseDir, pkgPath)
 			m2 := gno.NewMachineWithOptions(gno.MachineOptions{
-				Package: nil,
+				PkgPath: "test",
 				Output:  stdout,
 				Store:   store,
 			})
 			// pkg := gno.NewPackageNode(gno.Name(memPkg.Name), memPkg.Path, nil)
 			// pv := pkg.NewPackage()
 			// m2.SetActivePackage(pv)
-			return m2.RunMemPackage(memPkg, isRealm) // XXX , false)?
+			return m2.RunMemPackage(memPkg, false)
 		}
 		// TODO: if isRealm, can we panic here?
 		// otherwise, built-in package value.
@@ -349,24 +349,24 @@ func testStore(stdin io.Reader, stdout, stderr io.Writer, isRealm bool, nativeLi
 		if osm.DirExists(stdlibPath) {
 			memPkg := gno.ReadMemPackage(stdlibPath, pkgPath)
 			m2 := gno.NewMachineWithOptions(gno.MachineOptions{
-				Package: nil,
+				PkgPath: "test",
 				Output:  stdout,
 				Store:   store,
 			})
-			return m2.RunMemPackage(memPkg, isRealm) // XXX , false)?
+			return m2.RunMemPackage(memPkg, true)
 		}
 		// if examples package...
 		examplePath := filepath.Join("../examples", pkgPath)
 		if osm.DirExists(examplePath) {
 			memPkg := gno.ReadMemPackage(examplePath, pkgPath)
 			m2 := gno.NewMachineWithOptions(gno.MachineOptions{
-				Package: nil,
+				PkgPath: "test",
 				Output:  stdout,
 				Store:   store,
 			})
-			return m2.RunMemPackage(memPkg, isRealm) // XXX , false)?
+			return m2.RunMemPackage(memPkg, true)
 		}
-		panic("unknown package path " + pkgPath)
+		return nil, nil
 	}
 	// NOTE: store is also used in closure above.
 	db := dbm.NewMemDB()
@@ -383,17 +383,16 @@ func testStore(stdin io.Reader, stdout, stderr io.Writer, isRealm bool, nativeLi
 // analogous to stdlibs.InjectNatives, but with
 // native methods suitable for the testing environment.
 
-func testPackageInjector(store gno.Store, pn *gno.PackageNode, pv *gno.PackageValue) {
+func testPackageInjector(store gno.Store, pn *gno.PackageNode) {
 	// Also inject stdlibs native functions.
-	stdlibs.InjectPackage(store, pn, pv)
+	stdlibs.InjectPackage(store, pn)
 	// Test specific injections:
-	switch pv.PkgPath {
+	switch pn.PkgPath {
 	case "strconv":
 		// NOTE: Itoa and Atoi are already injected
 		// from stdlibs.InjectNatives.
 		pn.DefineGoNativeType(reflect.TypeOf(strconv.NumError{}))
 		pn.DefineGoNativeValue("ParseInt", strconv.ParseInt)
-		pn.PrepareNewValues(pv)
 	case "std":
 		// Also see stdlibs/InjectPackage.
 		pn.DefineNative("IsOriginCall",
@@ -409,7 +408,6 @@ func testPackageInjector(store gno.Store, pn *gno.PackageNode, pv *gno.PackageVa
 				m.PushValue(res0)
 			},
 		)
-		pn.PrepareNewValues(pv)
 	}
 }
 

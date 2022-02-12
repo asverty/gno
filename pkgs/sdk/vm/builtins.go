@@ -26,7 +26,7 @@ func (vmk *VMKeeper) initBuiltinPackages(store gno.Store) {
 		}
 		memPkg := gno.ReadMemPackage(stdlibPath, pkgPath)
 		m2 := gno.NewMachineWithOptions(gno.MachineOptions{
-			Package: nil,
+			PkgPath: "",
 			Output:  os.Stdout,
 			Store:   store,
 		})
@@ -36,11 +36,11 @@ func (vmk *VMKeeper) initBuiltinPackages(store gno.Store) {
 	store.SetPackageInjector(vmk.packageInjector)
 }
 
-func (vmk *VMKeeper) packageInjector(store gno.Store, pn *gno.PackageNode, pv *gno.PackageValue) {
+func (vmk *VMKeeper) packageInjector(store gno.Store, pn *gno.PackageNode) {
 	// Also inject stdlibs native functions.
-	stdlibs.InjectPackage(store, pn, pv)
+	stdlibs.InjectPackage(store, pn)
 	// vm (this package) specific injections:
-	switch pv.PkgPath {
+	switch pn.PkgPath {
 	case "std":
 		// Also see stdlibs/InjectPackage.
 		pn.DefineNative("IsOriginCall",
@@ -56,7 +56,6 @@ func (vmk *VMKeeper) packageInjector(store gno.Store, pn *gno.PackageNode, pv *g
 				m.PushValue(res0)
 			},
 		)
-		pn.PrepareNewValues(pv)
 	}
 }
 
